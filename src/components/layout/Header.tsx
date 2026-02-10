@@ -2,7 +2,7 @@ import { useBillStore } from '../../stores/billStore';
 import { t } from '../../constants/translations';
 import { LanguageToggle } from '../LanguageToggle';
 
-export type AppView = 'voucher' | 'prompt-generator' | 'gallery';
+export type AppView = 'voucher' | 'prompt-generator' | 'gallery' | 'template-builder';
 
 interface HeaderProps {
   currentView?: AppView;
@@ -14,11 +14,13 @@ const viewLabels = {
     voucher: 'Gutschein',
     'prompt-generator': 'Prompt Generator',
     gallery: 'Galerie',
+    'template-builder': 'Template-Assistent',
   },
   en: {
     voucher: 'Voucher',
     'prompt-generator': 'Prompt Generator',
     gallery: 'Gallery',
+    'template-builder': 'Template Wizard',
   },
 };
 
@@ -52,6 +54,12 @@ export function Header({ currentView = 'voucher', onViewChange }: HeaderProps) {
               onClick={() => onViewChange('gallery')}
             >
               {vl.gallery}
+            </button>
+            <button
+              className={`tab ${currentView === 'template-builder' ? 'tab-active bg-currency-cream text-currency-green' : 'text-currency-cream'}`}
+              onClick={() => onViewChange('template-builder')}
+            >
+              {vl['template-builder']}
             </button>
           </div>
         )}

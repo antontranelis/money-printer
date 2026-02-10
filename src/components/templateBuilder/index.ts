@@ -1,0 +1,1 @@
+export { TemplateCleaner } from './TemplateCleaner';

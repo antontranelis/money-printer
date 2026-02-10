@@ -27,6 +27,7 @@ let templatesLoaded = false;
 const STATIC_TEMPLATE_PATHS = [
   '/templates/classic/template.json',
   '/templates/modern/template.json',
+  '/templates/spiritual-natur-blaetter/template.json',
 ];
 
 // Dev template path (nur in Development)

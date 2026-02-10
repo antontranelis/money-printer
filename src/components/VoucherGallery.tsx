@@ -771,7 +771,7 @@ export function VoucherGallery() {
                           <span className="text-error">✗</span>
                         )}
                         <span>{t.checkEqualSize}</span>
-                        {!validationResult.sidesAreEqualSize && (
+                        {!validationResult.sidesAreEqualSize && validationResult.frontDimensions && validationResult.backDimensions && (
                           <span className="opacity-70">
                             ({t.frontHeight}: {validationResult.frontDimensions.height}px, {t.backHeight}: {validationResult.backDimensions.height}px)
                           </span>

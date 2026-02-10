@@ -4,6 +4,7 @@ import { VoucherEditor } from './components/VoucherEditor';
 import { PrintGenerator } from './components/printGenerator';
 import { SpiritualPromptPreview } from './components/SpiritualPromptPreview';
 import { VoucherGallery } from './components/VoucherGallery';
+import { TemplateWizard } from './components/templateWizard';
 import { initializeBillStore } from './stores/billStore';
 import { initializeSpiritualPromptStore } from './stores/spiritualPromptStore';
 import { initializeGeminiStore } from './stores/geminiStore';
@@ -15,6 +16,7 @@ function App() {
   // Track if prompt-generator was ever visited to avoid unmounting after first visit
   const [hasVisitedGenerator, setHasVisitedGenerator] = useState(false);
   const [hasVisitedGallery, setHasVisitedGallery] = useState(false);
+  const [hasVisitedTemplateBuilder, setHasVisitedTemplateBuilder] = useState(false);
   const loadVouchers = useVoucherGalleryStore((state) => state.loadVouchers);
 
   // Initialize store hydration from IndexedDB
@@ -35,7 +37,10 @@ function App() {
     if (currentView === 'gallery' && !hasVisitedGallery) {
       setHasVisitedGallery(true);
     }
-  }, [currentView, hasVisitedGenerator, hasVisitedGallery]);
+    if (currentView === 'template-builder' && !hasVisitedTemplateBuilder) {
+      setHasVisitedTemplateBuilder(true);
+    }
+  }, [currentView, hasVisitedGenerator, hasVisitedGallery, hasVisitedTemplateBuilder]);
 
   return (
     <div className="h-dvh flex flex-col bg-base-200">
@@ -71,6 +76,14 @@ function App() {
           <div className={currentView === 'gallery' ? '' : 'hidden'}>
             <div className="container mx-auto p-4 max-w-5xl">
               <VoucherGallery />
+            </div>
+          </div>
+        )}
+        {/* Template Builder / Wizard - mounted on first visit, then kept in DOM */}
+        {(currentView === 'template-builder' || hasVisitedTemplateBuilder) && (
+          <div className={currentView === 'template-builder' ? '' : 'hidden'}>
+            <div className="container mx-auto p-4 max-w-5xl">
+              <TemplateWizard />
             </div>
           </div>
         )}

@@ -6,6 +6,10 @@ export interface StoredValidationResult {
   hasBlackBackground: boolean;
   sidesAreEqualSize: boolean;
   hasNoBlackBorders: boolean;
+  /** Dimensions of front side */
+  frontDimensions?: { width: number; height: number };
+  /** Dimensions of back side */
+  backDimensions?: { width: number; height: number };
 }
 
 /** A single version in the voucher's history */

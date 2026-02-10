@@ -1,0 +1,277 @@
+{
+  "id": "spiritual-natur-blaetter",
+  "version": "1.0.0",
+  "name": "Spiritual Natur Blätter",
+  "type": "time-voucher",
+  "description": "Naturverbundenes Design mit spirituellen Symbolen, Blätter-Ornamentik und warmem Gold-auf-Dunkel Farbschema.",
+
+  "designer": {
+    "name": "Anton Tranelis",
+    "url": "https://antontranelis.de"
+  },
+
+  "created": "2026-02-10T00:00:00Z",
+  "updated": "2026-02-10T00:00:00Z",
+
+  "status": "development",
+
+  "assets": {
+    "front": "/templates/spiritual-natur-blaetter/front.webp",
+    "back": "/templates/spiritual-natur-blaetter/back.webp",
+    "badges": {
+      "type": "image",
+      "variants": [
+        { "value": 1, "image": "/templates/spiritual-natur-blaetter/badges/1.png", "size": 80 },
+        { "value": 5, "image": "/templates/spiritual-natur-blaetter/badges/5.png", "size": 80 },
+        { "value": 10, "image": "/templates/spiritual-natur-blaetter/badges/10.png", "size": 80 }
+      ]
+    }
+  },
+
+  "schema": {
+    "languages": ["de"],
+    "defaultLanguage": "de",
+    "fields": [
+      {
+        "id": "name",
+        "type": "text",
+        "label": { "de": "Name" },
+        "required": true,
+        "config": { "maxLength": 50 },
+        "ui": {
+          "placeholder": { "de": "Max Mustermann" },
+          "order": 1
+        }
+      },
+      {
+        "id": "hours",
+        "type": "select",
+        "label": { "de": "Stunden" },
+        "required": true,
+        "default": 1,
+        "config": {
+          "options": [
+            { "value": 1, "label": { "de": "1 Stunde" }, "badge": "/templates/spiritual-natur-blaetter/badges/1.png" },
+            { "value": 5, "label": { "de": "5 Stunden" }, "badge": "/templates/spiritual-natur-blaetter/badges/5.png" },
+            { "value": 10, "label": { "de": "10 Stunden" }, "badge": "/templates/spiritual-natur-blaetter/badges/10.png" }
+          ]
+        },
+        "ui": { "order": 2 }
+      },
+      {
+        "id": "portrait",
+        "type": "image",
+        "label": { "de": "Profilbild" },
+        "required": false,
+        "config": {
+          "shape": "ellipse",
+          "maxSize": 10,
+          "acceptedFormats": ["image/jpeg", "image/png", "image/webp"],
+          "features": {
+            "backgroundRemoval": true,
+            "engraving": true,
+            "zoom": true,
+            "pan": true
+          }
+        },
+        "ui": {
+          "helpText": { "de": "Wird als Gravur-Porträt im Zentrum der Vorderseite platziert" },
+          "order": 3
+        }
+      },
+      {
+        "id": "email",
+        "type": "email",
+        "label": { "de": "E-Mail" },
+        "required": true,
+        "ui": {
+          "placeholder": { "de": "max@beispiel.de" },
+          "order": 4,
+          "group": "contact"
+        }
+      },
+      {
+        "id": "phone",
+        "type": "tel",
+        "label": { "de": "Telefon" },
+        "required": true,
+        "config": { "format": "international" },
+        "ui": {
+          "placeholder": { "de": "+49 123 456789" },
+          "order": 5,
+          "group": "contact"
+        }
+      },
+      {
+        "id": "description",
+        "type": "textarea",
+        "label": { "de": "Beschreibung" },
+        "required": false,
+        "config": { "rows": 3, "maxLength": 200 },
+        "ui": {
+          "placeholder": { "de": "Für diesen Gutschein erhältst du 1 Stunde meiner Zeit oder ein vergleichbares Dankeschön." },
+          "order": 6
+        }
+      }
+    ],
+    "fieldGroups": [
+      {
+        "id": "contact",
+        "label": { "de": "Kontaktdaten" },
+        "fields": ["email", "phone"],
+        "collapsible": true
+      }
+    ]
+  },
+
+  "layout": {
+    "dimensions": {
+      "width": 1200,
+      "height": 590,
+      "dpi": 300,
+      "physicalSize": "102mm x 50mm"
+    },
+
+    "front": {
+      "layers": [
+        {
+          "type": "background",
+          "source": "front",
+          "hueShift": false
+        },
+        {
+          "type": "badges",
+          "fieldId": "hours",
+          "positions": [
+            { "x": 68, "y": 55, "size": 80, "anchor": "center" },
+            { "x": 1132, "y": 55, "size": 80, "anchor": "center" },
+            { "x": 68, "y": 535, "size": 80, "anchor": "center" },
+            { "x": 1132, "y": 535, "size": 80, "anchor": "center" }
+          ]
+        },
+        {
+          "type": "field",
+          "fieldId": "portrait",
+          "position": { "x": 540, "y": 235, "anchor": "center" },
+          "clip": "ellipse",
+          "size": { "radiusX": 100, "radiusY": 115 }
+        },
+        {
+          "type": "field",
+          "fieldId": "name",
+          "position": { "x": 600, "y": 540, "anchor": "center" },
+          "style": {
+            "fontSize": 28,
+            "fontFamily": "Georgia, Times New Roman, serif",
+            "fontWeight": "bold",
+            "color": "#D4AF37"
+          },
+          "maxWidth": 500,
+          "align": "center"
+        }
+      ]
+    },
+
+    "back": {
+      "layers": [
+        {
+          "type": "background",
+          "source": "back",
+          "hueShift": false
+        },
+        {
+          "type": "badges",
+          "fieldId": "hours",
+          "positions": [
+            { "x": 68, "y": 55, "size": 80, "anchor": "center" },
+            { "x": 1132, "y": 55, "size": 80, "anchor": "center" },
+            { "x": 68, "y": 535, "size": 80, "anchor": "center" },
+            { "x": 1132, "y": 535, "size": 80, "anchor": "center" }
+          ]
+        },
+        {
+          "type": "field",
+          "fieldId": "name",
+          "position": { "x": 310, "y": 230, "anchor": "center" },
+          "style": {
+            "fontSize": 24,
+            "fontFamily": "Georgia, Times New Roman, serif",
+            "fontWeight": "bold",
+            "color": "#D4AF37"
+          },
+          "maxWidth": 350,
+          "align": "center"
+        },
+        {
+          "type": "field",
+          "fieldId": "email",
+          "position": { "x": 310, "y": 280, "anchor": "center" },
+          "style": {
+            "fontSize": 16,
+            "fontFamily": "Georgia, Times New Roman, serif",
+            "fontWeight": "normal",
+            "color": "#C4A467"
+          },
+          "maxWidth": 350,
+          "align": "center"
+        },
+        {
+          "type": "field",
+          "fieldId": "phone",
+          "position": { "x": 310, "y": 315, "anchor": "center" },
+          "style": {
+            "fontSize": 16,
+            "fontFamily": "Georgia, Times New Roman, serif",
+            "fontWeight": "normal",
+            "color": "#C4A467"
+          },
+          "maxWidth": 350,
+          "align": "center"
+        },
+        {
+          "type": "field",
+          "fieldId": "description",
+          "position": { "x": 870, "y": 265, "anchor": "center" },
+          "style": {
+            "fontSize": 14,
+            "fontFamily": "Georgia, Times New Roman, serif",
+            "fontWeight": "normal",
+            "color": "#C4A467"
+          },
+          "maxWidth": 350,
+          "lineHeight": 22,
+          "align": "center",
+          "multiline": true
+        }
+      ]
+    },
+
+    "global": {
+      "hueShift": {
+        "enabled": false
+      },
+      "fontFamily": "Georgia, Times New Roman, serif",
+      "textColor": "#D4AF37"
+    }
+  },
+
+  "features": {
+    "hueShift": false,
+    "portraitEditing": {
+      "backgroundRemoval": true,
+      "engraving": true,
+      "zoom": true,
+      "pan": true
+    },
+    "signature": false
+  },
+
+  "shop": {
+    "pricing": {
+      "basePriceMultiplier": 1.0
+    },
+    "tags": ["spiritual", "natur", "blaetter", "gold", "ornamental"],
+    "thumbnail": "/templates/spiritual-natur-blaetter/front.webp",
+    "featured": false
+  }
+}

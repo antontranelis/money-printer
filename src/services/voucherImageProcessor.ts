@@ -125,9 +125,8 @@ function findOuterEdges(
     }
   }
 
-  // Small padding to clean up any edge artifacts
-  // Reduced from 3 to 1 to avoid cutting into voucher content
-  const extraPadding = 1;
+  // Padding inward to remove dark edge pixels (matching process-vouchers.mjs)
+  const extraPadding = 5;
   left = Math.min(left + extraPadding, width - 1);
   right = Math.max(right - extraPadding, 0);
   top = Math.min(top + extraPadding, height - 1);
@@ -171,97 +170,33 @@ function cropCanvas(
 }
 
 /**
- * Find only vertical edges (top and bottom) - used to trim black gap between vouchers
- * Returns the top and bottom Y coordinates where content starts/ends
+ * Trim black borders from all 4 sides of a canvas, then crop 10px inward
+ * to remove dark edge remnants (matching process-vouchers.mjs trimBlackBorders behavior).
+ *
+ * Uses the same edge-detection approach as findOuterEdges but applied to
+ * individual voucher halves after splitting.
  */
-function findVerticalEdges(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number
-): { top: number; bottom: number } {
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-
-  const getBrightness = (x: number, y: number): number => {
-    const idx = (y * width + x) * 4;
-    return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-  };
-
-  // Very aggressive threshold to cut off gray edges/artifacts (matches findOuterEdges)
-  const brightnessThreshold = 150;
-  const sampleLines = 20;
-
-  // Find TOP edge
-  let top = 0;
-  {
-    const results: number[] = [];
-    for (let i = 0; i < sampleLines; i++) {
-      const x = Math.floor(width * 0.2 + (width * 0.6 * i) / sampleLines);
-      for (let y = 0; y < height; y++) {
-        if (getBrightness(x, y) > brightnessThreshold) {
-          results.push(y);
-          break;
-        }
-      }
-    }
-    if (results.length > 0) {
-      results.sort((a, b) => a - b);
-      top = results[Math.floor(results.length / 2)];
-    }
-  }
-
-  // Find BOTTOM edge
-  let bottom = height - 1;
-  {
-    const results: number[] = [];
-    for (let i = 0; i < sampleLines; i++) {
-      const x = Math.floor(width * 0.2 + (width * 0.6 * i) / sampleLines);
-      for (let y = height - 1; y >= 0; y--) {
-        if (getBrightness(x, y) > brightnessThreshold) {
-          results.push(y);
-          break;
-        }
-      }
-    }
-    if (results.length > 0) {
-      results.sort((a, b) => a - b);
-      bottom = results[Math.floor(results.length / 2)];
-    }
-  }
-
-  // Add extra padding to aggressively cut off any gray artifacts
-  const extraPadding = 3;
-  top = Math.min(top + extraPadding, height - 1);
-  bottom = Math.max(bottom - extraPadding, 0);
-
-  // Ensure valid bounds
-  if (top >= bottom) {
-    return { top: 0, bottom: height - 1 };
-  }
-
-  return { top, bottom };
-}
-
-/**
- * Trim black from top and bottom of a canvas
- */
-function trimVerticalBlack(canvas: HTMLCanvasElement): HTMLCanvasElement {
+function trimBlackBorders(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return canvas;
 
-  const { top, bottom } = findVerticalEdges(ctx, canvas.width, canvas.height);
+  // Find content bounds on all 4 sides
+  const bounds = findOuterEdges(ctx, canvas.width, canvas.height);
 
-  // If no trimming needed, return original
-  if (top === 0 && bottom === canvas.height - 1) {
-    return canvas;
+  // Crop to content
+  const trimmed = cropCanvas(canvas, bounds);
+
+  // Inward crop to remove dark edge remnants (same as process-vouchers.mjs)
+  const INWARD_CROP = 10;
+  if (trimmed.width <= INWARD_CROP * 2 + 10 || trimmed.height <= INWARD_CROP * 2 + 10) {
+    return trimmed;
   }
 
-  const trimmedHeight = bottom - top + 1;
-  return cropCanvas(canvas, {
-    x: 0,
-    y: top,
-    width: canvas.width,
-    height: trimmedHeight,
+  return cropCanvas(trimmed, {
+    x: INWARD_CROP,
+    y: INWARD_CROP,
+    width: trimmed.width - INWARD_CROP * 2,
+    height: trimmed.height - INWARD_CROP * 2,
   });
 }
 
@@ -518,11 +453,11 @@ export async function validateVoucherImage(
       );
 
       // Find actual content bounds within each half (trimming any black borders)
-      const frontContentBounds = findVerticalEdges(frontCtx, frontCanvas.width, frontCanvas.height);
-      const backContentBounds = findVerticalEdges(backCtx, backCanvas.width, backCanvas.height);
+      const frontContentBounds = findOuterEdges(frontCtx, frontCanvas.width, frontCanvas.height);
+      const backContentBounds = findOuterEdges(backCtx, backCanvas.width, backCanvas.height);
 
-      const frontContentHeight = frontContentBounds.bottom - frontContentBounds.top + 1;
-      const backContentHeight = backContentBounds.bottom - backContentBounds.top + 1;
+      const frontContentHeight = frontContentBounds.height;
+      const backContentHeight = backContentBounds.height;
 
       // Check for exact size match (within 1% tolerance - stricter than before)
       const sizeTolerance = 0.01; // 1% tolerance for exact match
@@ -673,43 +608,22 @@ export async function processVoucherImage(
           0, 0, croppedWidth, sideHeight            // destination: full canvas
         );
 
-        // === STEP 5: Trim black from top/bottom of each half ===
-        // This removes the black gap that was between the two vouchers
-        const frontTrimmed = trimVerticalBlack(frontCanvasRaw);
-        const backTrimmed = trimVerticalBlack(backCanvasRaw);
+        // === STEP 5: Trim black borders from all 4 sides of each half ===
+        // This removes any remaining black edges (gap between vouchers, side borders).
+        // Also crops 10px inward to remove dark edge remnants (matching process-vouchers.mjs).
+        const frontFinal = trimBlackBorders(frontCanvasRaw);
+        const backFinal = trimBlackBorders(backCanvasRaw);
 
-        // === STEP 6: Unify heights so both sides have the same dimensions ===
-        // If sizes differ, fill gaps with white background
-        const maxHeight = Math.max(frontTrimmed.height, backTrimmed.height);
-
-        // Create final canvases with unified height
-        const frontCanvas = document.createElement('canvas');
-        frontCanvas.width = croppedWidth;
-        frontCanvas.height = maxHeight;
-        const frontCtx = frontCanvas.getContext('2d');
-        if (frontCtx) {
-          // Fill with white background first (for any gaps)
-          frontCtx.fillStyle = '#FFFFFF';
-          frontCtx.fillRect(0, 0, croppedWidth, maxHeight);
-          // Center vertically if smaller
-          const yOffset = Math.floor((maxHeight - frontTrimmed.height) / 2);
-          frontCtx.drawImage(frontTrimmed, 0, yOffset);
-        }
-
-        let backCanvas = document.createElement('canvas');
-        backCanvas.width = croppedWidth;
-        backCanvas.height = maxHeight;
-        let backCtx = backCanvas.getContext('2d');
+        // === STEP 6: Overlay QR code on back side if URL provided ===
+        // Draw directly onto the trimmed back canvas (no white-padding unify step)
+        const backCanvas = document.createElement('canvas');
+        backCanvas.width = backFinal.width;
+        backCanvas.height = backFinal.height;
+        const backCtx = backCanvas.getContext('2d');
         if (backCtx) {
-          // Fill with white background first (for any gaps)
-          backCtx.fillStyle = '#FFFFFF';
-          backCtx.fillRect(0, 0, croppedWidth, maxHeight);
-          // Center vertically if smaller
-          const yOffset = Math.floor((maxHeight - backTrimmed.height) / 2);
-          backCtx.drawImage(backTrimmed, 0, yOffset);
+          backCtx.drawImage(backFinal, 0, 0);
         }
 
-        // Overlay QR code on back side if URL provided
         if (qrCodeUrl && isValidUrl(qrCodeUrl) && backCtx) {
           try {
             const qrBase64 = await generateQrCodeBase64(qrCodeUrl);
@@ -717,20 +631,19 @@ export async function processVoucherImage(
 
             await new Promise<void>((resolveQr) => {
               qrImg.onload = () => {
-                // Calculate QR code size and position based on cropped dimensions
-                const croppedWidth = backCanvas.width;
-                const croppedHeight = backCanvas.height;
-                const qrSize = Math.round(croppedWidth * qrSizePercent);
-                const padding = Math.round(croppedWidth * qrPaddingPercent);
+                const bw = backCanvas.width;
+                const bh = backCanvas.height;
+                const qrSize = Math.round(bw * qrSizePercent);
+                const padding = Math.round(bw * qrPaddingPercent);
 
                 // Position: bottom right of back side
-                const x = croppedWidth - qrSize - padding;
-                const y = croppedHeight - qrSize - padding;
+                const x = bw - qrSize - padding;
+                const y = bh - qrSize - padding;
 
                 // Draw white background with rounded corners and very soft transparent fade at edges
                 const bgPadding = Math.round(qrSize * 0.08);
-                const fadeSize = Math.round(qrSize * 0.25); // Larger fade zone for softer transition
-                const cornerRadius = Math.round(qrSize * 0.1); // Rounded corner radius
+                const fadeSize = Math.round(qrSize * 0.25);
+                const cornerRadius = Math.round(qrSize * 0.1);
 
                 const bgX = x - bgPadding;
                 const bgY = y - bgPadding;
@@ -740,11 +653,8 @@ export async function processVoucherImage(
                 // Draw many layers with very gradual opacity decrease for ultra-soft edge
                 const layers = 20;
                 for (let i = layers; i >= 0; i--) {
-                  const t = i / layers; // 0 = inner, 1 = outer
+                  const t = i / layers;
                   const expansion = fadeSize * t;
-                  // Use smooth cubic easing for very gradual fade
-                  // Inner layers (small t) have high opacity, outer layers fade to 0
-                  // Max opacity 0.7 for more transparency
                   const opacity = i === 0 ? 0.5 : Math.pow(1 - t, 3) * 0.25;
 
                   const layerX = bgX - expansion;
@@ -759,26 +669,25 @@ export async function processVoucherImage(
                   backCtx!.fill();
                 }
 
-                // Draw QR code
                 backCtx!.drawImage(qrImg, x, y, qrSize, qrSize);
                 resolveQr();
               };
 
               qrImg.onerror = () => {
                 console.warn('Failed to load QR code image, continuing without it');
-                resolveQr(); // Continue without QR code
+                resolveQr();
               };
 
               qrImg.src = `data:image/png;base64,${qrBase64}`;
             });
           } catch (error) {
             console.warn('Failed to generate QR code:', error);
-            // Continue without QR code
           }
         }
 
-        // Convert to base64
-        const frontBase64 = frontCanvas.toDataURL('image/png').split(',')[1];
+        // Convert to base64 — keep natural dimensions (no white-padding unify)
+        // generateVoucherPdf uses asymmetric bleed to handle size differences
+        const frontBase64 = frontFinal.toDataURL('image/png').split(',')[1];
         const backBase64 = backCanvas.toDataURL('image/png').split(',')[1];
 
         resolve({
@@ -786,8 +695,8 @@ export async function processVoucherImage(
           backBase64,
           originalBase64: imageBase64,
           dimensions: {
-            width: frontCanvas.width,
-            height: frontCanvas.height,
+            width: frontFinal.width,
+            height: frontFinal.height,
           },
         });
       } catch (error) {
@@ -844,62 +753,206 @@ async function resizeAndCompressImage(
 }
 
 /**
- * Generate a PDF with front and back sides for printing.
+ * Add 3mm mirror-stretch bleed to an image canvas.
+ * Mirrors half the bleed from each edge, then stretches to full bleed size.
+ * Also handles corners by mirroring both axes.
+ */
+function addBleedToCanvas(
+  sourceCanvas: HTMLCanvasElement,
+  bleedW: number,
+  bleedH: number
+): HTMLCanvasElement {
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  const bw = w + bleedW * 2;
+  const bh = h + bleedH * 2;
+  const halfW = Math.max(1, Math.ceil(bleedW / 2));
+  const halfH = Math.max(1, Math.ceil(bleedH / 2));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = bw;
+  canvas.height = bh;
+  const ctx = canvas.getContext('2d')!;
+
+  // Helper: draw a mirrored strip onto a temp canvas, then stretch it
+  const mirrorStrip = (
+    sx: number, sy: number, sw: number, sh: number,
+    flipX: boolean, flipY: boolean,
+    targetW: number, targetH: number
+  ): HTMLCanvasElement => {
+    // Draw the source region mirrored
+    const temp = document.createElement('canvas');
+    temp.width = sw;
+    temp.height = sh;
+    const tctx = temp.getContext('2d')!;
+    tctx.save();
+    if (flipX) {
+      tctx.translate(sw, 0);
+      tctx.scale(-1, 1);
+    }
+    if (flipY) {
+      tctx.translate(0, sh);
+      tctx.scale(1, -1);
+    }
+    tctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    tctx.restore();
+
+    // Stretch to target size
+    if (targetW !== sw || targetH !== sh) {
+      const stretched = document.createElement('canvas');
+      stretched.width = targetW;
+      stretched.height = targetH;
+      const sctx = stretched.getContext('2d')!;
+      sctx.imageSmoothingEnabled = true;
+      sctx.imageSmoothingQuality = 'high';
+      sctx.drawImage(temp, 0, 0, targetW, targetH);
+      return stretched;
+    }
+    return temp;
+  };
+
+  // Draw main content in the center
+  ctx.drawImage(sourceCanvas, bleedW, bleedH);
+
+  // Top strip (mirrored vertically)
+  const topStrip = mirrorStrip(0, 0, w, halfH, false, true, w, bleedH);
+  ctx.drawImage(topStrip, bleedW, 0);
+
+  // Bottom strip (mirrored vertically)
+  const bottomStrip = mirrorStrip(0, h - halfH, w, halfH, false, true, w, bleedH);
+  ctx.drawImage(bottomStrip, bleedW, h + bleedH);
+
+  // Left strip (mirrored horizontally)
+  const leftStrip = mirrorStrip(0, 0, halfW, h, true, false, bleedW, h);
+  ctx.drawImage(leftStrip, 0, bleedH);
+
+  // Right strip (mirrored horizontally)
+  const rightStrip = mirrorStrip(w - halfW, 0, halfW, h, true, false, bleedW, h);
+  ctx.drawImage(rightStrip, w + bleedW, bleedH);
+
+  // Corners (mirrored both axes)
+  const tlCorner = mirrorStrip(0, 0, halfW, halfH, true, true, bleedW, bleedH);
+  ctx.drawImage(tlCorner, 0, 0);
+
+  const trCorner = mirrorStrip(w - halfW, 0, halfW, halfH, true, true, bleedW, bleedH);
+  ctx.drawImage(trCorner, w + bleedW, 0);
+
+  const blCorner = mirrorStrip(0, h - halfH, halfW, halfH, true, true, bleedW, bleedH);
+  ctx.drawImage(blCorner, 0, h + bleedH);
+
+  const brCorner = mirrorStrip(w - halfW, h - halfH, halfW, halfH, true, true, bleedW, bleedH);
+  ctx.drawImage(brCorner, w + bleedW, h + bleedH);
+
+  return canvas;
+}
+
+/**
+ * Load a base64 PNG into a canvas element
+ */
+function base64ToCanvas(base64: string): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas);
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = `data:image/png;base64,${base64}`;
+  });
+}
+
+/**
+ * Generate a print-ready PDF with front and back sides including 3mm bleed.
  * Uses jspdf library.
  *
- * Output: 139mm width at 600 DPI, no margins or background.
- * Page size is exactly the image size.
- * Images are compressed as JPEG and scaled to target DPI for smaller file size.
+ * Output: ~137mm content width + 3mm bleed on each side at 600 DPI.
+ * Bleed is created by mirror-stretching the edges (same technique as process-vouchers.mjs).
+ * Front/back may have slightly different dimensions — the smaller side gets more bleed
+ * so both PDF pages end up the same size.
  */
 export async function generateVoucherPdf(
   images: ProcessedVoucherImages
 ): Promise<Blob> {
-  // Dynamically import jspdf to reduce initial bundle size
   const { jsPDF } = await import('jspdf');
 
-  const { frontBase64, backBase64, dimensions } = images;
+  const { frontBase64, backBase64 } = images;
 
-  // Fixed width of 139mm at 600 DPI
-  const imgWidthMm = 139;
-  const dpi = 600;
+  // Print dimensions
+  const CONTENT_WIDTH_MM = 137;
+  const BLEED_MM = 3;
+  const DPI = 600;
 
-  // Calculate height based on aspect ratio
-  const aspectRatio = dimensions.width / dimensions.height;
-  const imgHeightMm = imgWidthMm / aspectRatio;
-
-  // Calculate target pixel dimensions for 600 DPI
-  // 1 inch = 25.4mm, so pixels = mm * dpi / 25.4
-  const targetWidthPx = Math.round(imgWidthMm * dpi / 25.4);
-  const targetHeightPx = Math.round(imgHeightMm * dpi / 25.4);
-
-  // Resize and compress images to JPEG
-  const [frontJpeg, backJpeg] = await Promise.all([
-    resizeAndCompressImage(frontBase64, targetWidthPx, targetHeightPx, 0.92),
-    resizeAndCompressImage(backBase64, targetWidthPx, targetHeightPx, 0.92),
+  // Load front/back into canvases to get their actual pixel dimensions
+  const [frontCanvas, backCanvas] = await Promise.all([
+    base64ToCanvas(frontBase64),
+    base64ToCanvas(backBase64),
   ]);
 
-  // Create PDF with custom page size matching the image exactly (no margins/background)
+  const frontW = frontCanvas.width;
+  const frontH = frontCanvas.height;
+  const backW = backCanvas.width;
+  const backH = backCanvas.height;
+
+  // Calculate bleed in pixels based on the larger content width
+  const maxW = Math.max(frontW, backW);
+  const maxH = Math.max(frontH, backH);
+  const baseBleedPx = Math.round(maxW * BLEED_MM / CONTENT_WIDTH_MM);
+
+  // Target total size = max content + 2 * baseBleed
+  const totalW = maxW + baseBleedPx * 2;
+  const totalH = maxH + baseBleedPx * 2;
+
+  // Per-side bleed: smaller side gets extra bleed to match total size
+  const frontBleedW = Math.floor((totalW - frontW) / 2);
+  const frontBleedH = Math.floor((totalH - frontH) / 2);
+  const backBleedW = Math.floor((totalW - backW) / 2);
+  const backBleedH = Math.floor((totalH - backH) / 2);
+
+  // Add bleed to both sides
+  const frontWithBleed = addBleedToCanvas(frontCanvas, frontBleedW, frontBleedH);
+  const backWithBleed = addBleedToCanvas(backCanvas, backBleedW, backBleedH);
+
+  // Calculate page size in mm
+  const dpiActual = maxW / (CONTENT_WIDTH_MM / 25.4);
+  const pageWidthMm = (totalW / dpiActual) * 25.4;
+  const pageHeightMm = (totalH / dpiActual) * 25.4;
+
+  // Scale to target DPI and compress as JPEG
+  const targetWidthPx = Math.round(pageWidthMm * DPI / 25.4);
+  const targetHeightPx = Math.round(pageHeightMm * DPI / 25.4);
+
+  const frontBleedBase64 = frontWithBleed.toDataURL('image/png').split(',')[1];
+  const backBleedBase64 = backWithBleed.toDataURL('image/png').split(',')[1];
+
+  const [frontJpeg, backJpeg] = await Promise.all([
+    resizeAndCompressImage(frontBleedBase64, targetWidthPx, targetHeightPx, 0.92),
+    resizeAndCompressImage(backBleedBase64, targetWidthPx, targetHeightPx, 0.92),
+  ]);
+
+  // Create PDF
   const pdf = new jsPDF({
-    orientation: imgWidthMm > imgHeightMm ? 'landscape' : 'portrait',
+    orientation: pageWidthMm > pageHeightMm ? 'landscape' : 'portrait',
     unit: 'mm',
-    format: [imgWidthMm, imgHeightMm],
+    format: [pageWidthMm, pageHeightMm],
   });
 
-  // Add front side on first page (positioned at 0,0, full page)
   pdf.addImage(
     `data:image/jpeg;base64,${frontJpeg}`,
     'JPEG',
     0, 0,
-    imgWidthMm, imgHeightMm
+    pageWidthMm, pageHeightMm
   );
 
-  // Add back side on second page
-  pdf.addPage([imgWidthMm, imgHeightMm]);
+  pdf.addPage([pageWidthMm, pageHeightMm]);
   pdf.addImage(
     `data:image/jpeg;base64,${backJpeg}`,
     'JPEG',
     0, 0,
-    imgWidthMm, imgHeightMm
+    pageWidthMm, pageHeightMm
   );
 
   return pdf.output('blob');

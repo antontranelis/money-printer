@@ -264,6 +264,8 @@ async function computeValidationResult(originalBase64: string): Promise<StoredVa
       hasBlackBackground: result.hasBlackBackground,
       sidesAreEqualSize: result.sidesAreEqualSize,
       hasNoBlackBorders: result.hasNoBlackBorders,
+      frontDimensions: result.frontDimensions,
+      backDimensions: result.backDimensions,
     };
   } catch (e) {
     console.error('[VoucherGallery] Validation failed:', e);
@@ -272,6 +274,8 @@ async function computeValidationResult(originalBase64: string): Promise<StoredVa
       hasBlackBackground: false,
       sidesAreEqualSize: false,
       hasNoBlackBorders: false,
+      frontDimensions: { width: 0, height: 0 },
+      backDimensions: { width: 0, height: 0 },
     };
   }
 }
@@ -630,7 +634,12 @@ export const useVoucherGalleryStore = create<VoucherGalleryState>((set, get) => 
 
   migrateLegacyVouchers: async () => {
     const vouchers = get().vouchers;
-    const legacyVouchers = vouchers.filter((v) => !v.validationResult);
+    // Find vouchers without validation result OR without dimension data (legacy format)
+    const legacyVouchers = vouchers.filter((v) =>
+      !v.validationResult ||
+      !v.validationResult.frontDimensions ||
+      !v.validationResult.backDimensions
+    );
 
     if (legacyVouchers.length === 0) return;
 

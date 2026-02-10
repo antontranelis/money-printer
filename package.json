@@ -41,6 +41,8 @@
     "build:lib": "tsc -b && vite build --config vite.lib.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
+    "validate-template": "node scripts/validate-template.mjs",
+    "render-template": "node scripts/render-template.mjs",
     "prepublishOnly": "npm run build:lib"
   },
   "peerDependencies": {
@@ -72,6 +74,7 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
+    "ajv": "^8.17.1",
     "daisyui": "^5.0.0",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.0.0",
@@ -79,6 +82,7 @@
     "globals": "^15.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.0.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.18.2",
